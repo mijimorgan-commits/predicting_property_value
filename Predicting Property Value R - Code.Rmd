@@ -1,0 +1,389 @@
+---
+title: "DATA604 Project Model Fitting, Assumption Checking and Prediction"
+output: html_notebook
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+
+Please note: We attempted three different models for different property types (residential, farmland, retail). However, due to the low performance of the farm and residential models, we chose to focus in on the retail model as our main model. All three models are shown belpow, but the full process was only included for the retail model.
+
+## RESIDENTIAL MODEL (not main model)
+
+```{r}
+residential2 = read.csv("https://6f2289b7-b3e8-4629-9dcd-9603b4155470.usrfiles.com/ugd/6f2289_9608a672418a43ddaac71af3d7f4a2e6.csv")
+residential2
+```
+
+Factor the variable WARD:
+```{r}
+residential2$WARD = factor(residential2$WARD)
+```
+
+Remove the variables ASSESSMENT_CLASS and PROPERTY_TYPE as they only have one value each:
+```{r}
+residential2_full = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=residential2)
+summary(residential2_full)
+```
+Try interaction terms:
+```{r}
+residential2_int = lm(ASSESSED_VALUE ~ (AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD)^2, data=residential2)
+summary(residential2_int)$adj.r.squared
+```
+Remove insignificant interaction terms:
+```{r}
+residential2_int_red = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*SUB_PROPERTY_USE + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=residential2)
+summary(residential2_int_red)$adj.r.squared
+```
+
+
+Due to the low adjusted R squared, this model was not chosen as our main model. 
+
+
+
+## FARM MODEL (not main model)
+
+```{r}
+Farmdata=read.csv("https://6f2289b7-b3e8-4629-9dcd-9603b4155470.usrfiles.com/ugd/6f2289_856db1bbf2524a7e92c04091b296dc42.csv")
+Farmdata <- subset(Farmdata, select = -ADDRESS)
+Farmdata <- subset(Farmdata, select = -SUB_PROPERTY_USE) #only one possible value
+
+Farmdata$WARD = factor(Farmdata$WARD) #factor WARD
+Farmdata$SECTOR = factor(Farmdata$SECTOR) #factor SECTOR
+
+#intermediary steps not shown here
+
+Farmmodel = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + AGE:LAND_SIZE_SF + QUADRANT + WARD,data=Farmdata)
+summary(Farmmodel)
+```
+Even with interaction terms tested, the farm model only gives an adjusted R squared of 0.3309.
+
+Due to the low adjusted R squared, this model was not chosen as our main model. 
+
+
+
+## RETAIL MODEL (main model)
+
+Due to the high adjusted R squared, the retail model was chosen as the main model.
+
+### Model Fitting
+
+```{r}
+retail3 = read.csv("https://6f2289b7-b3e8-4629-9dcd-9603b4155470.usrfiles.com/ugd/6f2289_0fda19253f114b02acb80f9328ff0734.csv")
+#head(retail3, 5)
+```
+
+Factor the variable WARD:
+
+```{r}
+retail3$WARD = factor(retail3$WARD)
+unique(retail3$WARD)
+```
+
+REMOVE PROPERTY_TYPE from retail (only one value)
+
+```{r}
+retail3_full = lm(ASSESSED_VALUE ~ QUADRANT + ASSESSMENT_CLASS + AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=retail3)
+#summary(retail3_full)
+```
+
+
+Check for Multicollinearity:
+
+```{r}
+library(car) #for VIF
+vif(retail3_full)
+```
+
+Drop quadrant to use WARD instead (multi-collinearity with WARD)  
+```{r}
+retail3_full_ward = lm(ASSESSED_VALUE ~ ASSESSMENT_CLASS + AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=retail3)
+```
+
+ANOVA for Overall F Test:
+```{r}
+retail3_null = lm(ASSESSED_VALUE ~ 1, data=retail3) 
+anova(retail3_null, retail3_full_ward)
+```
+```{r}
+summary(retail3_full_ward)
+```
+Drop insignificant ASSESSMENT_CLASS, get final additive model  
+```{r}
+retail3_reduced_ward = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=retail3)
+summary(retail3_reduced_ward)$adj.r.square
+```
+
+Try stepwise selection process for comparison:
+```{r}
+library(olsrr)
+retail3_step = ols_step_both_p(retail3_full_ward, p_enter =0.1, p_remove=0.3, details=TRUE)
+summary(retail3_step$model)
+```
+The stepwise selection process chose the same predictors and resulted in the same adjusted r squared value.
+
+The final additive model is: ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD
+
+
+Check interaction terms:
+```{r}
+retail3_reduced_ward_int = lm(ASSESSED_VALUE ~ (AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD)^2, data=retail3)
+# summary(retail3_reduced_ward_int)
+```  
+
+Drop insignificant AGE*SUB_PROPERTY_USE interaction term for final interaction model:
+```{r}
+retail3_reduced_ward_redint = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+summary(retail3_reduced_ward_redint)
+```  
+
+
+Test higher order model with AGE^2 & LAND_SIZE_SF^2:
+```{r}
+retail3_reduced_ward_int_a2 = lm(ASSESSED_VALUE ~ AGE + I(AGE^2) + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+#summary(retail3_reduced_ward_int_a2)
+retail3_reduced_ward_int_ls2 = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + I(LAND_SIZE_SF^2) + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+#summary(retail3_reduced_ward_int_ls2)
+```  
+Higher order AGE^2 term was not significant to be added to the model, and the higher order LAND_SIZE_SF^2 term did not improve the adj R-squared significantly (less than 1%), hence the term will not be added to the model since it will over-complicate the model. As a result, our final model is the reduced interaction model above.
+
+
+### Assumption checking:
+
+1.  Linearity: Perform residual plots to verify the linearity assumption between the response variable and the predictors.
+
+```{r}
+ggplot(retail3_reduced_ward_redint, aes(x=.fitted, y=.resid)) + geom_point() + geom_smooth()+ geom_hline(yintercept = 0)
+
+```  
+
+```{r}
+library(dplyr)
+#removed the unused columns for pair plotting
+retail3_new = retail3 %>% dplyr::select(ASSESSED_VALUE, ASSESSMENT_CLASS, AGE, LAND_SIZE_SF, SUB_PROPERTY_USE, WARD)
+retail3_new = data.frame(retail3_new)
+
+library(GGally)
+ggpairs(retail3_new, lower = list(continuous = "smooth_loess", combo = "facethist", discrete = "facetbar", na = "na"))
+#or 
+pairs(~ASSESSED_VALUE+ AGE + LAND_SIZE_SF + factor(SUB_PROPERTY_USE) + factor(WARD) , data=retail3, panel=panel.smooth)
+```
+
+By looking at the pair plots, it appears that LAND_SIZE_SF has a linear relationship with ASSESSED_VALUE but AGE is not exactly linear.
+Therefore, we try to model AGE at a higher model, starting with a quadratic model.
+
+```{r}
+#try a quad model for AGE
+retail3_quad = lm(ASSESSED_VALUE ~ AGE + I(AGE^2) + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD  + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+summary(retail3_quad)$adj.r.square
+summary(retail3_reduced_ward_redint)$adj.r.square
+
+# predictor AGE is not significant after higher order is introduced, & there are no changes in adj r-squared, not worth proceeding with higher power
+
+# try log(AGE) instead
+any(retail3$AGE ==0) #check if any AGE values is 0
+retail3_log = lm(ASSESSED_VALUE ~ I(log(AGE)) + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + I(log(AGE))*LAND_SIZE_SF + I(log(AGE))*WARD  + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+summary(retail3_log)$adj.r.square #not much changes in adjusted R-squared value
+```
+
+```{r}
+#comparison of residual plots(interaction, quadratic, logAGE)
+ggplot(retail3_reduced_ward_redint, aes(x=.fitted, y=.resid)) + geom_point() + geom_smooth()+ geom_hline(yintercept = 0)
+ggplot(retail3_quad, aes(x=.fitted, y=.resid)) + geom_point() + geom_smooth()+ geom_hline(yintercept = 0)
+ggplot(retail3_log, aes(x=.fitted, y=.resid)) + geom_point() + geom_smooth()+ geom_hline(yintercept = 0)
+```
+
+2.  Independent Errors
+
+What are some ways we can check for independence?
+- Residuals vs time (or observation number) - Residuals vs spatial variable - Residuals vs group (prefer blocking)
+
+```{r}
+#WARD
+ggplot(retail3_reduced_ward_redint, aes(x=retail3$WARD, y=.resid)) + geom_boxplot()
+
+#SUB_PROPERTY_USE
+ggplot(retail3_reduced_ward_redint, aes(x=retail3$SUB_PROPERTY_USE, y=.resid)) + geom_boxplot()
+# medians are close to zero for both plots, no strong evidence correlated errors. Additionally, we model WARD & SUB_PROPERTY_USE as a categorical predictor with dummy variables to meet the independent errors assumption.
+```
+
+3.  Homoscedasticity (equal variance assumption)
+
+```{r}
+# residual plot
+ggplot(retail3_reduced_ward_redint, aes(x=.fitted, y=.resid)) +
+  geom_point(colour = "purple") +
+  geom_hline(yintercept = 0) +
+  geom_smooth(colour = "green4")+
+  ggtitle("Residual plot: Residual vs Fitted values")  
+
+# scale location plot
+ggplot(retail3_reduced_ward_redint, aes(x=.fitted, y=sqrt(abs(.stdresid)))) +
+  geom_point(colour = "purple") +
+  geom_hline(yintercept = 0) +
+  geom_smooth( colour = "green4")+
+   ggtitle("Scale-Location plot : Standardized Residual vs Fitted values") 
+
+# OR
+plot(retail3_reduced_ward_redint, which=1) #residual plots  (any obvious funneling in the residual plot?)
+plot(retail3_reduced_ward_redint, which=3) #scale location plots
+```
+
+```{r}
+library(lmtest)
+bptest(retail3_reduced_ward_redint)
+# the p-value is 2.2e-16, which is  < 0.05, we reject the null hypothesis hence concluding heteroscedasticity is present. 
+```
+
+To deal with heteroscedasticity, log transform on the response variable (assessed value) was performed, and retested again with the Breusch-Pagan Test.
+
+```{r}
+#import log(Y) dataset
+logretail = read.csv("https://6f2289b7-b3e8-4629-9dcd-9603b4155470.usrfiles.com/ugd/6f2289_177cc112db1442d6bd78d493674e511d.csv")
+logretail$WARD = factor(logretail$WARD)
+```
+
+```{r}
+retail_reduced = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=logretail)
+#summary(retail_reduced)
+retail_int = lm(ASSESSED_VALUE ~ (AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD)^2, data=logretail)
+#summary(retail_int)
+retail_int2 = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=logretail)
+summary(retail_int2)$adj.r.square
+
+#test higher power for AGE
+retail_quad = lm(ASSESSED_VALUE ~ AGE + I(AGE^2) + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=logretail)
+summary(retail_quad)$adj.r.square  # not valid model, no need for higher term for AGE
+
+#BP Test
+bptest(retail_int2)
+# Again the p-value was 2.2e-16, which is < 0.05, heteroscedasticity is still concluded to be present.
+```
+
+We can try with Box-Cox transformation.
+The Box-Cox method consider a family of power transformations on **strictly positive response variables**.
+ASSESSED_VALUE are all positive values, so we can proceed with the box-cox method.
+
+```{r}
+library(MASS) #for the boxcox()function
+bc=boxcox(retail3_reduced_ward_redint,lambda=seq(-1,1))
+
+#extract best lambda
+bestlambda=bc$x[which(bc$y==max(bc$y))]
+bestlambda
+# Using the Box-Cox method, we see that \lambda=0.070707 falls in the confidence interval 
+```
+
+```{r}
+#We found that bestlambda = 0.07070707
+bcmodel=lm((((ASSESSED_VALUE^0.07070707)-1)/0.07070707) ~ LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data = retail3)
+summary(bcmodel)
+
+
+#Testing for Homoscedasticity
+library(lmtest)
+bptest(bcmodel)
+plot(bcmodel,which=1)
+
+#Testing for Normality
+shapiro.test(residuals(bcmodel))
+```
+
+It seems the p-value for the Breusch-Pagan test remains at 2.2e-16, which we fail to reject the null hypothesis.
+Heteroscedasticity is still present.
+The p-value for the Shapiro-Wilk test is 1.67e-8, which we fail to reject the null hypothesis.
+The residual data is not normally distributed.
+The Box-Cox Transformation is not helpful for this dataset.
+
+Since both attempts to transform the response variable to reduce the variation failed, there is a strong sign that the core issue is not simply the scale of the variable, but something deeper in the model structure or even the estimation method.
+
+4.  Normality
+
+```{r}
+ggplot(retail3, aes(sample=retail3_reduced_ward_redint$residuals)) + stat_qq() + stat_qq_line()
+hist(residuals(retail3_reduced_ward_redint))
+
+
+#Testing for Normality
+shapiro.test(residuals(retail3_reduced_ward_redint))
+
+# it seems the residual data wasn't normally distributed from the Normal Probability Plot. The Shapiro-Wilk Normality test also concludes that the residuals are not normally distributed since the p-value is < 0.05.
+```
+
+5.  Outliers
+
+Cook’s distance was calculated to check for any outliers data points.
+
+```{r}
+retail3[cooks.distance(retail3_reduced_ward_redint)>0.5,]
+plot(retail3_reduced_ward_redint,pch=18,col="red",which=c(4)) #which =4 only prints the cook distance plot
+
+#it appears that there are 3 data points that has a Cook's distance of value >0.5 (#738, 750, 927)
+```
+
+We will try removing the 3 outliers data points (#738, 750, 927) from the original dataset and rebuild the model.
+
+```{r}
+retail_reoutlier = read.csv("https://6f2289b7-b3e8-4629-9dcd-9603b4155470.usrfiles.com/ugd/6f2289_f6615078e56c4cdba164c207be91d83d.csv")
+# WARD to factor
+retail_reoutlier$WARD = factor(retail_reoutlier$WARD)
+
+# dropping property type & quadrant
+retail4_full_ward = lm(ASSESSED_VALUE ~ ASSESSMENT_CLASS + AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=retail_reoutlier)
+#summary(retail3_full_ward)
+
+# drop insignificant ASSESSMENT_CLASS
+retail4_reduced_ward = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD, data=retail_reoutlier)
+#summary(retail4_reduced_ward)
+
+# test for interaction terms
+retail4_reduced_ward_int = lm(ASSESSED_VALUE ~ (AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD)^2, data=retail_reoutlier)
+#summary(retail4_reduced_ward_int)
+
+# reduced interaction model
+retail4_reduced_ward_redint = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail_reoutlier)
+summary(retail4_reduced_ward_redint)$adj.r.square
+
+plot(retail4_reduced_ward_redint, which=1) #residuals plot 
+plot(retail4_reduced_ward_redint, which=3) #scaled-location plot
+# funneling of residuals observed and scale-location plot is not horizontal, heteroscedasticity is still present
+
+# normality test
+shapiro.test(residuals(retail4_reduced_ward_redint)) 
+# p-value still at 2.2e-16
+
+```
+After removing the 3 outliers, the homoscedasticity and normality assumptions were still not met.
+It was also found that the adjusted R-squared decreased by 0.02% after removing the 3 outliers.
+No strong indicators that we should remove the three data points since it did not help with resolving the assumptions violation and the adjusted R-squared did not improved as well.
+
+
+### Prediction
+
+For predicting purposes:
+
+```{r}
+#checking the range
+range(retail3$AGE)
+range(retail3$LAND_SIZE_SF)
+unique(retail3$SUB_PROPERTY_USE)
+unique(retail3$WARD)
+```
+
+```{r}
+# the model
+# retail3_reduced_ward_redint = lm(ASSESSED_VALUE ~ AGE + LAND_SIZE_SF + SUB_PROPERTY_USE + WARD + AGE*LAND_SIZE_SF + AGE*WARD + LAND_SIZE_SF*SUB_PROPERTY_USE + LAND_SIZE_SF*WARD + SUB_PROPERTY_USE*WARD, data=retail3)
+newdata = data.frame(AGE = 5, LAND_SIZE_SF = 2000, SUB_PROPERTY_USE = factor("CM0210", levels = c("CM0201", "CM0203", "CM0210")), WARD= factor("7", levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14")))
+
+predict(retail3_reduced_ward_redint, newdata, interval="predict", level=0.95)
+
+
+# restaurant in university (for presentation)
+newdata1 = data.frame(AGE = 24, LAND_SIZE_SF = 3200, SUB_PROPERTY_USE = factor("CM0201", levels = c("CM0201", "CM0203", "CM0210")), WARD= factor("7", levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14")))
+
+predict(retail3_reduced_ward_redint, newdata1, interval="predict", level=0.95)
+```
+
+
+
