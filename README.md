@@ -23,3 +23,5 @@ The final model demonstrates how property characteristics contribute to assessed
 - Yuling Wong  
 - Sundeep Parmar  
 - Elise Beaupre  
+
+*Note: This repository contains a modified version of the original coursework submission for portfolio and educational purposes.*
