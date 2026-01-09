@@ -6,21 +6,22 @@ This project was completed as part of *Statistical Modeling with Data* at the Un
 The objective was to build and evaluate a supervised machine learning model to predict the assessed value of residential properties based on their characteristics.
 
 ## Data
-Passenger data was obtained from the Data Science Dojo github repository.
-The dataset includes features such name, gender, ticket class, family members, and cabin.
+Property assessment data was obtained from the City of Calgary Open Data Portal and used as training data.  
+The dataset includes features such as property type, lot size, location, and age of building.
 
 ## Methodology
-- Implemented **supervised learning models (decision tree and random forest)** in Python
-- Performed data cleaning and model fitting
-- Evaluated model performance using appropriate metrics and visualization
-- Interpreted model to assess feature influence on survivability
+- Implemented a **supervised learning regression model (linear regression)** in R
+- Performed data cleaning and feature selection
+- Evaluated model performance using appropriate regression metrics
+- Interpreted model coefficients to assess feature influence on property value
 
 ## Results
-The final model demonstrates how individual characteristics of passengers contribute to their survivability.
+The final model demonstrates how property characteristics contribute to assessed value and serves as an interpretable baseline for real estate valuation tasks.
 
 ## Contributors
 - Michael Morgan  
 - Yuling Wong  
 - Sundeep Parmar  
+- Elise Beaupre  
 
 *Note: This repository contains a modified version of the original coursework submission for portfolio and educational purposes.*
